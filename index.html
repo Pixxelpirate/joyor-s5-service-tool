@@ -438,9 +438,9 @@ body{
   <!-- VERBINDEN -->
   <section id="verbinden" class="section active">
     <div id="bleNoSupport" class="ble-no-support" style="display:none">
-      <strong>Bluetooth nicht verfügbar</strong>
-      Web Bluetooth wird nur in Chrome auf Android und Chrome Desktop (mit Flag) unterstützt.
-      Öffne diese Seite in Google Chrome auf deinem Handy.
+      <strong>USB Serial nicht verfügbar</strong>
+      Die Web Serial API wird in Chrome auf Desktop und Android (mit OTG-Kabel) unterstützt.
+      Öffne diese Seite in Google Chrome.
     </div>
     <div id="bleContent">
       <div class="ble-status">
@@ -448,9 +448,15 @@ body{
         <span class="ble-label" id="bleLabel">Getrennt</span>
         <span class="ble-device" id="bleDevice"></span>
       </div>
-      <div class="ble-actions">
-        <button class="ble-btn ble-btn-primary" id="bleScan">Scooter suchen</button>
+      <div class="ble-actions" style="flex-wrap:wrap;gap:8px">
+        <button class="ble-btn ble-btn-primary" id="bleScan">USB verbinden</button>
         <button class="ble-btn ble-btn-sec" id="bleDisconnect" disabled>Trennen</button>
+        <select id="baudSelect" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px">
+          <option value="9600">9600 Baud</option>
+          <option value="38400">38400 Baud</option>
+          <option value="57600">57600 Baud</option>
+          <option value="115200" selected>115200 Baud</option>
+        </select>
       </div>
 
       <h2 class="section-title">Live-Daten</h2>
@@ -489,13 +495,13 @@ body{
         </div>
       </div>
 
-      <h2 class="section-title">Dienste &amp; Eigenschaften</h2>
+      <h2 class="section-title">USB-Port Info</h2>
       <div id="bleServices" class="ble-services">
-        <div class="no-results">Nicht verbunden. Drücke "Scooter suchen" um BLE-Dienste zu entdecken.</div>
+        <div class="no-results">Nicht verbunden.</div>
       </div>
 
       <h2 class="section-title" style="margin-top:20px">Protokoll</h2>
-      <div class="ble-log" id="bleLog">Bereit. Drücke "Scooter suchen" um zu starten.</div>
+      <div class="ble-log" id="bleLog">Bereit. Scooter per USB-Kabel verbinden und "USB verbinden" drücken.</div>
     </div>
   </section>
 
@@ -934,15 +940,8 @@ renderMaint();
   `).join('');
 })();
 
-/* ── Bluetooth / Verbinden ───────────────────── */
+/* ── USB Serial / Verbinden ─────────────────── */
 (function() {
-  const UART_SERVICES = [
-    {name:'Generic UART (FFE0)', svc:0xFFE0, tx:0xFFE1, rx:0xFFE1},
-    {name:'Nordic UART (NUS)', svc:'6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-     tx:'6e400002-b5a3-f393-e0a9-e50e24dcca9e', rx:'6e400003-b5a3-f393-e0a9-e50e24dcca9e'},
-    {name:'Alt UART (FFF0)', svc:0xFFF0, tx:0xFFF1, rx:0xFFF2},
-  ];
-
   const dot = document.getElementById('bleDot');
   const label = document.getElementById('bleLabel');
   const deviceEl = document.getElementById('bleDevice');
@@ -952,13 +951,16 @@ renderMaint();
   const discBtn = document.getElementById('bleDisconnect');
   const noSupport = document.getElementById('bleNoSupport');
   const bleContent = document.getElementById('bleContent');
+  const baudSelect = document.getElementById('baudSelect');
 
-  let gattServer = null;
-  let txChar = null;
-  let rxChar = null;
+  let port = null;
+  let reader = null;
+  let writer = null;
+  let readLoop = null;
   let pollTimer = null;
+  let rxBuf = [];
 
-  if (!navigator.bluetooth) {
+  if (!('serial' in navigator)) {
     noSupport.style.display = '';
     bleContent.style.display = 'none';
     return;
@@ -1002,10 +1004,38 @@ renderMaint();
     return 'ok';
   }
 
-  function parseFrame(data) {
-    const bytes = new Uint8Array(data.buffer);
-    if (bytes.length < 4) return;
+  function processRxBuf() {
+    while (rxBuf.length >= 4) {
+      // Protocol A: [5A A5] [len] [cmd] [data...] [checksum]
+      if (rxBuf[0] === 0x5A && rxBuf[1] === 0xA5) {
+        const len = rxBuf[2];
+        const frameLen = len + 4;
+        if (rxBuf.length < frameLen) break;
+        const frame = rxBuf.splice(0, frameLen);
+        parseFrame(frame);
+        continue;
+      }
+      // Protocol B: [AA] ... [55]
+      if (rxBuf[0] === 0xAA) {
+        const endIdx = rxBuf.indexOf(0x55, 3);
+        if (endIdx === -1) { if (rxBuf.length > 64) rxBuf.splice(0, 1); break; }
+        const frame = rxBuf.splice(0, endIdx + 1);
+        parseFrame(frame);
+        continue;
+      }
+      // Protocol C: continuous stream — try 10-byte chunks
+      if (rxBuf.length >= 10) {
+        const frame = rxBuf.splice(0, 10);
+        parseFrame(frame);
+        continue;
+      }
+      break;
+    }
+    if (rxBuf.length > 256) rxBuf.splice(0, rxBuf.length - 64);
+  }
 
+  function parseFrame(bytes) {
+    if (bytes.length < 4) return;
     log('RX: ' + bytesToHex(bytes), 'log-data');
 
     // Protocol A: [5A A5] [len] [cmd] [data...] [checksum]
@@ -1065,7 +1095,7 @@ renderMaint();
       return;
     }
 
-    // Protocol C: continuous stream (some controllers send periodic packets)
+    // Protocol C: continuous stream
     if (bytes.length >= 10) {
       const volt = ((bytes[2] << 8) | bytes[3]) / 100;
       if (volt > 30 && volt < 70) {
@@ -1078,101 +1108,23 @@ renderMaint();
     }
   }
 
-  function renderServices(services) {
-    let html = '';
-    services.forEach(svc => {
-      const uuid = svc.uuid.length > 8 ? svc.uuid.substring(0, 8) + '...' : svc.uuid;
-      html += `<div class="ble-svc"><div class="ble-svc-name">Service: ${uuid}</div>`;
-      svc.chars.forEach(c => {
-        const props = [];
-        if (c.properties.read) props.push('read');
-        if (c.properties.write) props.push('write');
-        if (c.properties.writeWithoutResponse) props.push('writeNoResp');
-        if (c.properties.notify) props.push('notify');
-        if (c.properties.indicate) props.push('indicate');
-        const cuuid = c.uuid.length > 8 ? c.uuid.substring(0, 8) + '...' : c.uuid;
-        html += `<div class="ble-char">${cuuid} <span class="ble-char-props">${props.join(' ')}</span></div>`;
-      });
-      html += '</div>';
-    });
-    svcEl.innerHTML = html || '<div class="no-results">Keine Dienste gefunden.</div>';
-  }
-
-  async function discoverAndSubscribe(server) {
-    const discoveredServices = [];
-    let foundUart = false;
-
-    try {
-      const allServices = await server.getPrimaryServices();
-      log(allServices.length + ' Dienste gefunden.', 'log-info');
-
-      for (const svc of allServices) {
-        const svcInfo = {uuid: svc.uuid, chars: []};
-        try {
-          const chars = await svc.getCharacteristics();
-          for (const ch of chars) {
-            svcInfo.chars.push({uuid: ch.uuid, properties: ch.properties});
-
-            for (const known of UART_SERVICES) {
-              const svcMatch = typeof known.svc === 'number'
-                ? svc.uuid === BluetoothUUID.getService(known.svc)
-                : svc.uuid === known.svc;
-              if (!svcMatch) continue;
-
-              const rxMatch = typeof known.rx === 'number'
-                ? ch.uuid === BluetoothUUID.getCharacteristic(known.rx)
-                : ch.uuid === known.rx;
-              const txMatch = typeof known.tx === 'number'
-                ? ch.uuid === BluetoothUUID.getCharacteristic(known.tx)
-                : ch.uuid === known.tx;
-
-              if (rxMatch && ch.properties.notify) {
-                rxChar = ch;
-                log('UART RX gefunden: ' + known.name, 'log-ok');
-                foundUart = true;
-                ch.addEventListener('characteristicvaluechanged', e => parseFrame(e.target.value));
-                await ch.startNotifications();
-                log('Notifications aktiviert auf RX.', 'log-ok');
-              }
-              if (txMatch && (ch.properties.write || ch.properties.writeWithoutResponse)) {
-                txChar = ch;
-                log('UART TX gefunden: ' + known.name, 'log-ok');
-              }
-            }
-
-            if (!foundUart && ch.properties.notify) {
-              log('Notify-Characteristic gefunden: ' + ch.uuid.substring(0,8) + '... — abonniere.', 'log-info');
-              ch.addEventListener('characteristicvaluechanged', e => parseFrame(e.target.value));
-              await ch.startNotifications();
-              rxChar = ch;
-              foundUart = true;
-            }
-          }
-        } catch(e) {
-          log('Characteristics lesen fehlgeschlagen: ' + e.message, 'log-err');
-        }
-        discoveredServices.push(svcInfo);
-      }
-    } catch(e) {
-      log('Service-Discovery fehlgeschlagen: ' + e.message, 'log-err');
-    }
-
-    renderServices(discoveredServices);
-
-    if (!foundUart) {
-      log('Kein UART-Dienst erkannt. Daten werden angezeigt sobald der Scooter sendet.', 'log-info');
-    }
+  function renderPortInfo(info) {
+    const usbVendor = info.usbVendorId ? '0x' + info.usbVendorId.toString(16).padStart(4,'0') : '—';
+    const usbProduct = info.usbProductId ? '0x' + info.usbProductId.toString(16).padStart(4,'0') : '—';
+    svcEl.innerHTML = `
+      <div class="ble-svc">
+        <div class="ble-svc-name">USB Serial Port</div>
+        <div class="ble-char">Vendor ID: <span class="ble-char-props">${usbVendor}</span></div>
+        <div class="ble-char">Product ID: <span class="ble-char-props">${usbProduct}</span></div>
+        <div class="ble-char">Baudrate: <span class="ble-char-props">${baudSelect.value}</span></div>
+      </div>`;
   }
 
   async function sendCommand(bytes) {
-    if (!txChar) return;
+    if (!writer) return;
     try {
       const data = new Uint8Array(bytes);
-      if (txChar.properties.writeWithoutResponse) {
-        await txChar.writeValueWithoutResponse(data);
-      } else {
-        await txChar.writeValueWithResponse(data);
-      }
+      await writer.write(data);
       log('TX: ' + bytesToHex(data), 'log-data');
     } catch(e) {
       log('Senden fehlgeschlagen: ' + e.message, 'log-err');
@@ -1182,7 +1134,7 @@ renderMaint();
   function startPolling() {
     stopPolling();
     pollTimer = setInterval(() => {
-      if (!txChar) return;
+      if (!writer) return;
       sendCommand([0x5A, 0xA5, 0x02, 0x40, 0x00, 0xE1]);
       setTimeout(() => sendCommand([0x5A, 0xA5, 0x02, 0x41, 0x00, 0xE2]), 200);
       setTimeout(() => sendCommand([0x5A, 0xA5, 0x02, 0x43, 0x00, 0xE4]), 400);
@@ -1194,12 +1146,12 @@ renderMaint();
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
 
-  function disconnect() {
+  async function disconnect() {
     stopPolling();
-    if (gattServer && gattServer.connected) {
-      gattServer.disconnect();
-    }
-    gattServer = null; txChar = null; rxChar = null;
+    if (reader) { try { await reader.cancel(); } catch(e) {} reader = null; }
+    if (writer) { try { writer.releaseLock(); } catch(e) {} writer = null; }
+    if (port) { try { await port.close(); } catch(e) {} port = null; }
+    rxBuf = [];
     setStatus('', 'Getrennt', '');
     discBtn.disabled = true;
     scanBtn.disabled = false;
@@ -1207,57 +1159,64 @@ renderMaint();
     log('Verbindung getrennt.', 'log-info');
   }
 
+  async function startReading() {
+    while (port && port.readable) {
+      reader = port.readable.getReader();
+      try {
+        while (true) {
+          const {value, done} = await reader.read();
+          if (done) break;
+          rxBuf.push(...value);
+          processRxBuf();
+        }
+      } catch(e) {
+        log('Lese-Fehler: ' + e.message, 'log-err');
+      } finally {
+        try { reader.releaseLock(); } catch(e) {}
+      }
+    }
+  }
+
   scanBtn.addEventListener('click', async () => {
     scanBtn.disabled = true;
-    setStatus('scanning', 'Suche...', '');
+    setStatus('scanning', 'Verbinde...', '');
     logEl.innerHTML = '';
-    log('Starte BLE-Scan...', 'log-info');
-    log('Tipp: Scooter einschalten und in der Nähe halten.', 'log-info');
+    log('USB-Port auswählen...', 'log-info');
+    log('Tipp: Scooter einschalten und USB-Kabel anschließen.', 'log-info');
 
     try {
-      const filters = UART_SERVICES.map(u => ({services: [typeof u.svc === 'number' ? BluetoothUUID.getService(u.svc) : u.svc]}));
-      const device = await navigator.bluetooth.requestDevice({
-        filters: filters,
-        optionalServices: UART_SERVICES.map(u => typeof u.svc === 'number' ? BluetoothUUID.getService(u.svc) : u.svc),
-        acceptAllDevices: false,
-      }).catch(() =>
-        navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: UART_SERVICES.map(u => typeof u.svc === 'number' ? BluetoothUUID.getService(u.svc) : u.svc),
-        })
-      );
+      port = await navigator.serial.requestPort();
+      const info = port.getInfo();
+      const baud = parseInt(baudSelect.value);
 
-      const name = device.name || device.id;
-      log('Gerät ausgewählt: ' + name, 'log-ok');
-      setStatus('scanning', 'Verbinde...', name);
+      log('Port ausgewählt (Vendor: 0x' + (info.usbVendorId || 0).toString(16) + ')', 'log-ok');
+      setStatus('scanning', 'Öffne Port...', '');
 
-      device.addEventListener('gattserverdisconnected', () => {
-        log('Verbindung verloren.', 'log-err');
-        disconnect();
-      });
+      await port.open({ baudRate: baud, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' });
 
-      gattServer = await device.gatt.connect();
-      log('GATT verbunden.', 'log-ok');
-      setStatus('connected', 'Verbunden', name);
+      log('USB Serial verbunden (' + baud + ' Baud)', 'log-ok');
+      setStatus('connected', 'Verbunden', 'USB @ ' + baud + ' Bd');
       discBtn.disabled = false;
       scanBtn.disabled = false;
 
-      await discoverAndSubscribe(gattServer);
+      renderPortInfo(info);
 
-      if (txChar) {
-        log('Starte Polling für Live-Daten...', 'log-info');
-        startPolling();
-      }
+      writer = port.writable.getWriter();
+      startReading();
+
+      log('Starte Polling für Live-Daten...', 'log-info');
+      startPolling();
 
     } catch(e) {
       if (e.name === 'NotFoundError') {
-        log('Kein Gerät ausgewählt.', 'log-info');
+        log('Kein Port ausgewählt.', 'log-info');
         setStatus('', 'Getrennt', '');
       } else {
         log('Fehler: ' + e.message, 'log-err');
         setStatus('error', 'Fehler', '');
       }
       scanBtn.disabled = false;
+      port = null;
     }
   });
 

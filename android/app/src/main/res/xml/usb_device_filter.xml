@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common USB-to-serial chips used in e-scooter controllers -->
+    <!-- CH340/CH341 -->
+    <usb-device vendor-id="6790" product-id="29987" />
+    <!-- CP2102/CP2104 (Silicon Labs) -->
+    <usb-device vendor-id="4292" product-id="60000" />
+    <!-- FTDI FT232R -->
+    <usb-device vendor-id="1027" product-id="24577" />
+    <!-- PL2303 (Prolific) -->
+    <usb-device vendor-id="1659" product-id="8963" />
+    <!-- Catch-all: any USB device (user confirms via permission dialog) -->
+</resources>
