@@ -1,4 +1,4 @@
-const CACHE = 'joyor-s5-v2';
+const CACHE = 'joyor-v3';
 const ASSETS = [
   './',
   './index.html',

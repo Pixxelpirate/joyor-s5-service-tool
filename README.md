@@ -1,14 +1,20 @@
-# Joyor S5 ABE Service-Tool
+# Joyor Service-Tool
 
-Selbst-Wartung, Diagnose & Referenz für den **Joyor S5 ABE** E-Scooter.
+Universelles Selbst-Wartung, Diagnose & Referenz-Tool für alle gängigen **Joyor** E-Scooter.
+
+## Unterstützte Modelle
+
+S5 (ABE) · S7 · S8 · S10-S · S10-Z · F5S · F6 · F7 · A3 · A5 · Y5S · Y6S · Y8-S · Y10-S · X5S · LR8
 
 ## Features
 
-- **Bluetooth BLE** — Verbindung zum Scooter-Controller für Live-Daten (Spannung, Geschwindigkeit, Temperatur)
+- **Modellauswahl** — Alle gängigen Joyor-Modelle mit modellspezifischen Daten
+- **USB + Bluetooth** — Dual-Mode-Verbindung zum Controller (Web Serial & Web Bluetooth)
+- **Live-Daten** — Spannung, Geschwindigkeit, Temperatur, Strom, Fehler in Echtzeit
 - **Fehlercodes** — Alle E01–E14 mit Schweregrad, Beschreibung und Behebungsanleitung
 - **Wartungsplan** — 12 Wartungspunkte mit Intervallen, Kilometerstand-Tracking und localStorage
-- **P-Settings** — Alle P01–P15 Parameter mit ABE-Warnhinweisen
-- **Technische Daten** — Schnellreferenz, Spezifikationen und Anzugsmomente
+- **P-Settings** — Alle P01–P15 Parameter mit modellspezifischen Standardwerten und ABE-Warnhinweisen
+- **Technische Daten** — Schnellreferenz, Spezifikationen und Anzugsmomente pro Modell
 - **Fehlerbehebung** — 8 Schritt-für-Schritt-Anleitungen
 
 ## Installation
@@ -16,7 +22,7 @@ Selbst-Wartung, Diagnose & Referenz für den **Joyor S5 ABE** E-Scooter.
 ### Als Chrome-App (PWA)
 
 1. Seite in Chrome (Android oder Desktop) aufrufen
-2. Menu (&#8942;) &rarr; **App installieren** / **Zum Startbildschirm hinzufügen**
+2. Menu (⋮) → **App installieren** / **Zum Startbildschirm hinzufügen**
 3. Das Tool startet als eigenständige App mit Offline-Support
 
 ### Als Android-APK
@@ -24,7 +30,7 @@ Selbst-Wartung, Diagnose & Referenz für den **Joyor S5 ABE** E-Scooter.
 Das `android/`-Verzeichnis enthält ein fertiges Android-Studio-Projekt:
 
 1. In Android Studio öffnen
-2. Build &rarr; Generate Signed APK
+2. Build → Generate Signed APK
 3. APK auf dem Handy installieren
 
 ### Im Browser
@@ -35,21 +41,9 @@ Einfach `index.html` im Browser öffnen — funktioniert komplett offline als ei
 
 Die Seite kann direkt via GitHub Pages gehostet werden:
 
-**Settings &rarr; Pages &rarr; Source: Deploy from branch &rarr; Branch: main &rarr; Save**
+**Settings → Pages → Source: Deploy from branch → Branch: main → Save**
 
 Danach erreichbar unter: `https://pixxelpirate.github.io/joyor-s5-service-tool/`
-
-## Technische Details
-
-| | |
-|---|---|
-| Motor | 500 W BLDC |
-| Akku | 48V 13Ah Li-Ion |
-| V-Max (ABE) | 20 km/h |
-| Reichweite | 40–55 km |
-| Reifen | 10" Pneumatik |
-| Bremsen | Scheibenbremse v/h |
-| Zulassung | eKFV / ABE |
 
 ## Lizenz
 

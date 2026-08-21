@@ -3,11 +3,11 @@
 <meta name="theme-color" content="#e05a22">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Joyor S5">
+<meta name="apple-mobile-web-app-title" content="Joyor Service">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.svg">
-<title>Joyor S5 ABE Service</title>
+<title>Joyor Service-Tool</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500&family=Fira+Code:wght@400;500&display=swap">
 <style>
 :root {
@@ -340,6 +340,9 @@ body{
 .ble-btn:disabled{opacity:.4;cursor:not-allowed}
 .ble-btn-primary{background:var(--accent);color:var(--accent-text)}
 .ble-btn-primary:hover:not(:disabled){background:var(--accent-hover)}
+.conn-mode-btn{background:var(--bg-input);color:var(--text-sec)}
+.conn-mode-btn.active{background:var(--accent);color:var(--accent-text)}
+.conn-mode-btn:not(.active):hover{background:var(--border)}
 .ble-btn-sec{background:var(--bg-input);color:var(--text);border:1px solid var(--border)}
 .ble-btn-sec:hover:not(:disabled){background:var(--border)}
 
@@ -410,6 +413,23 @@ body{
   text-align:center;
 }
 
+/* Model Selector */
+.model-select-wrap{margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.model-select{
+  font-family:'Barlow',sans-serif;font-size:14px;font-weight:500;
+  padding:8px 14px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg-input);color:var(--text);
+  cursor:pointer;flex:1;min-width:160px;max-width:320px;
+}
+.model-select:focus{outline:none;border-color:var(--accent)}
+.model-badge{
+  font-family:'Fira Code','Courier New',monospace;
+  font-size:11px;font-weight:500;
+  background:var(--accent);color:var(--accent-text);
+  padding:3px 8px;border-radius:3px;letter-spacing:.5px;
+  text-transform:uppercase;white-space:nowrap;
+}
+
 /* Focus */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
@@ -421,10 +441,31 @@ body{
 
 <div class="app">
   <header class="hdr">
-    <span class="hdr-badge">ABE</span>
-    <h1>Joyor S5 Service-Tool</h1>
+    <span class="hdr-badge" id="hdrBadge">ABE</span>
+    <h1 id="hdrTitle">Joyor Service-Tool</h1>
     <p class="hdr-sub">Selbst-Wartung, Diagnose &amp; Referenz</p>
   </header>
+  <div class="model-select-wrap">
+    <select class="model-select" id="modelSelect">
+      <option value="s5">Joyor S5 (ABE)</option>
+      <option value="s7">Joyor S7</option>
+      <option value="s8">Joyor S8</option>
+      <option value="s10s">Joyor S10-S</option>
+      <option value="s10z">Joyor S10-Z</option>
+      <option value="f5s">Joyor F5S</option>
+      <option value="f6">Joyor F6</option>
+      <option value="f7">Joyor F7</option>
+      <option value="a3">Joyor A3</option>
+      <option value="a5">Joyor A5</option>
+      <option value="y5s">Joyor Y5S</option>
+      <option value="y6s">Joyor Y6S</option>
+      <option value="y8s">Joyor Y8-S</option>
+      <option value="y10s">Joyor Y10-S</option>
+      <option value="x5s">Joyor X5S</option>
+      <option value="lr8">Joyor LR8</option>
+    </select>
+    <span class="model-badge" id="modelBadge">48V · 500W</span>
+  </div>
 
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" role="tab" aria-selected="true" data-tab="verbinden">Verbinden</button>
@@ -437,12 +478,15 @@ body{
 
   <!-- VERBINDEN -->
   <section id="verbinden" class="section active">
-    <div id="bleNoSupport" class="ble-no-support" style="display:none">
-      <strong>USB Serial nicht verfügbar</strong>
-      Die Web Serial API wird in Chrome auf Desktop und Android (mit OTG-Kabel) unterstützt.
-      Öffne diese Seite in Google Chrome.
+    <div id="connNoSupport" class="ble-no-support" style="display:none">
+      <strong id="noSupportTitle">Nicht verfügbar</strong>
+      <span id="noSupportText"></span>
     </div>
     <div id="bleContent">
+      <div style="display:flex;gap:0;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--border)">
+        <button class="conn-mode-btn active" id="modeUsb" style="flex:1;padding:10px;border:none;cursor:pointer;font-weight:600;font-size:13px;font-family:inherit;transition:all .2s">USB</button>
+        <button class="conn-mode-btn" id="modeBle" style="flex:1;padding:10px;border:none;border-left:1px solid var(--border);cursor:pointer;font-weight:600;font-size:13px;font-family:inherit;transition:all .2s">Bluetooth</button>
+      </div>
       <div class="ble-status">
         <div class="ble-dot" id="bleDot"></div>
         <span class="ble-label" id="bleLabel">Getrennt</span>
@@ -495,13 +539,13 @@ body{
         </div>
       </div>
 
-      <h2 class="section-title">USB-Port Info</h2>
+      <h2 class="section-title">Verbindungs-Info</h2>
       <div id="bleServices" class="ble-services">
         <div class="no-results">Nicht verbunden.</div>
       </div>
 
       <h2 class="section-title" style="margin-top:20px">Protokoll</h2>
-      <div class="ble-log" id="bleLog">Bereit. Scooter per USB-Kabel verbinden und "USB verbinden" drücken.</div>
+      <div class="ble-log" id="bleLog">Bereit. Verbindungsmodus wählen und verbinden.</div>
     </div>
   </section>
 
@@ -532,7 +576,7 @@ body{
       P-Parameter im LCD-Display: Bremshebel gedrückt halten + Power-Taste. Mit Bremshebel durch Parameter navigieren, kurz Power zum Ändern, lang Power zum Speichern.
     </p>
     <div id="psetList"></div>
-    <div class="card has-stripe" style="margin-top:16px">
+    <div class="card has-stripe" style="margin-top:16px" id="abeHint">
       <div class="card-stripe crit"></div>
       <div style="font-size:13px">
         <strong style="color:var(--critical)">ABE-Hinweis:</strong>
@@ -544,40 +588,11 @@ body{
   <!-- DATEN -->
   <section id="daten" class="section">
     <h2 class="section-title">Schnellreferenz</h2>
-    <div class="quick-ref">
-      <div class="qr-item"><div class="qr-label">Reifendruck</div><div class="qr-value">2.5 – 3.0 bar</div></div>
-      <div class="qr-item"><div class="qr-label">Akku voll</div><div class="qr-value">54.6 V</div></div>
-      <div class="qr-item"><div class="qr-label">Akku leer</div><div class="qr-value">39.0 V</div></div>
-      <div class="qr-item"><div class="qr-label">Bremsbelag min.</div><div class="qr-value">1.5 mm</div></div>
-      <div class="qr-item"><div class="qr-label">Ladezeit</div><div class="qr-value">6 – 8 h</div></div>
-      <div class="qr-item"><div class="qr-label">Max. Zuladung</div><div class="qr-value">120 kg</div></div>
-    </div>
-
+    <div class="quick-ref" id="quickRef"></div>
     <h2 class="section-title">Technische Daten</h2>
-    <div class="spec-grid">
-      <div class="spec-item"><div class="spec-label">Motor</div><div class="spec-value">500 W BLDC</div></div>
-      <div class="spec-item"><div class="spec-label">Nennspannung</div><div class="spec-value">48 V</div></div>
-      <div class="spec-item"><div class="spec-label">Akku</div><div class="spec-value">48V 13Ah Li-Ion</div></div>
-      <div class="spec-item"><div class="spec-label">Reichweite</div><div class="spec-value">40 – 55 km</div></div>
-      <div class="spec-item"><div class="spec-label">V-Max (ABE)</div><div class="spec-value">20 km/h</div></div>
-      <div class="spec-item"><div class="spec-label">Gewicht</div><div class="spec-value">~23 kg</div></div>
-      <div class="spec-item"><div class="spec-label">Reifen</div><div class="spec-value">10" Pneumatik</div></div>
-      <div class="spec-item"><div class="spec-label">Bremsen</div><div class="spec-value">Scheibenbremse v/h</div></div>
-      <div class="spec-item"><div class="spec-label">Schutzklasse</div><div class="spec-value">IP54</div></div>
-      <div class="spec-item"><div class="spec-label">Ladegerät</div><div class="spec-value">54.6V 2A</div></div>
-      <div class="spec-item"><div class="spec-label">Zellen</div><div class="spec-value">13S / 48V</div></div>
-      <div class="spec-item"><div class="spec-label">Zulassung</div><div class="spec-value">eKFV / ABE</div></div>
-    </div>
-
+    <div class="spec-grid" id="specGrid"></div>
     <h2 class="section-title" style="margin-top:24px">Anzugsmomente</h2>
-    <div class="spec-grid">
-      <div class="spec-item"><div class="spec-label">Lenkerklemme</div><div class="spec-value">18 – 20 Nm</div></div>
-      <div class="spec-item"><div class="spec-label">Achsmuttern</div><div class="spec-value">25 – 30 Nm</div></div>
-      <div class="spec-item"><div class="spec-label">Bremsscheibe</div><div class="spec-value">5 – 6 Nm</div></div>
-      <div class="spec-item"><div class="spec-label">Bremssattel</div><div class="spec-value">8 – 10 Nm</div></div>
-      <div class="spec-item"><div class="spec-label">Klappgelenk</div><div class="spec-value">12 – 15 Nm</div></div>
-      <div class="spec-item"><div class="spec-label">Trittbrett-Schrauben</div><div class="spec-value">8 – 10 Nm</div></div>
-    </div>
+    <div class="spec-grid" id="torqueGrid"></div>
   </section>
 
   <!-- HILFE -->
@@ -587,11 +602,35 @@ body{
   </section>
 
   <footer class="foot">
-    Joyor S5 ABE Service-Tool &middot; Daten ohne Gewähr &middot; Alle Arbeiten auf eigene Verantwortung
+<span id="footModel">Joyor Service-Tool</span> &middot; Daten ohne Gewähr &middot; Alle Arbeiten auf eigene Verantwortung
   </footer>
 </div>
 
 <script>
+/* ── Model Database ─────────────────────────── */
+const MODELS = {
+  s5:  {name:'Joyor S5',badge:'ABE',volt:48,watt:500,ah:13,vmax:20,range:'40–55',weight:23,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'eKFV / ABE',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'6–8'},
+  s7:  {name:'Joyor S7',badge:'—',volt:48,watt:500,ah:13,vmax:25,range:'35–50',weight:22,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'6–8'},
+  s8:  {name:'Joyor S8',badge:'—',volt:48,watt:500,ah:13,vmax:30,range:'30–45',weight:23,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'6–8'},
+  s10s:{name:'Joyor S10-S',badge:'—',volt:48,watt:600,ah:18,vmax:25,range:'50–70',weight:26,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'8–10'},
+  s10z:{name:'Joyor S10-Z',badge:'—',volt:48,watt:600,ah:18,vmax:25,range:'50–70',weight:27,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h + Trommelbremse',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'8–10'},
+  f5s: {name:'Joyor F5S',badge:'—',volt:36,watt:350,ah:10.4,vmax:25,range:'30–40',weight:16,tire:'8" Solid',brakes:'Scheibenbremse hinten + E-Bremse',ip:'IP54',charger:'42V 2A',cells:'10S',zulassung:'—',maxLoad:100,tirePressure:'—',poles:15,wheelInch:8,uvp:30.0,fullV:42.0,chargeTime:'4–5'},
+  f6:  {name:'Joyor F6',badge:'—',volt:48,watt:500,ah:10,vmax:25,range:'25–35',weight:18,tire:'8" Solid',brakes:'Scheibenbremse hinten + E-Bremse',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'—',poles:15,wheelInch:8,uvp:39.0,fullV:54.6,chargeTime:'5–6'},
+  f7:  {name:'Joyor F7',badge:'—',volt:48,watt:500,ah:13,vmax:25,range:'35–50',weight:20,tire:'8" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:8,uvp:39.0,fullV:54.6,chargeTime:'6–8'},
+  a3:  {name:'Joyor A3',badge:'—',volt:36,watt:250,ah:7.8,vmax:20,range:'20–25',weight:12,tire:'8" Solid',brakes:'E-Bremse + Fußbremse',ip:'IP54',charger:'42V 1.5A',cells:'10S',zulassung:'—',maxLoad:100,tirePressure:'—',poles:15,wheelInch:8,uvp:30.0,fullV:42.0,chargeTime:'4–5'},
+  a5:  {name:'Joyor A5',badge:'—',volt:36,watt:350,ah:10.4,vmax:25,range:'25–35',weight:14,tire:'8" Solid',brakes:'Scheibenbremse + E-Bremse',ip:'IP54',charger:'42V 2A',cells:'10S',zulassung:'—',maxLoad:100,tirePressure:'—',poles:15,wheelInch:8,uvp:30.0,fullV:42.0,chargeTime:'4–5'},
+  y5s: {name:'Joyor Y5S',badge:'—',volt:48,watt:500,ah:13,vmax:25,range:'35–50',weight:22,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'6–8'},
+  y6s: {name:'Joyor Y6S',badge:'—',volt:48,watt:500,ah:13,vmax:30,range:'30–45',weight:22,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'6–8'},
+  y8s: {name:'Joyor Y8-S',badge:'—',volt:48,watt:500,ah:18,vmax:25,range:'50–65',weight:25,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'8–10'},
+  y10s:{name:'Joyor Y10-S',badge:'—',volt:48,watt:600,ah:26,vmax:25,range:'60–80',weight:28,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'10–12'},
+  x5s: {name:'Joyor X5S',badge:'—',volt:48,watt:500,ah:13,vmax:25,range:'35–50',weight:24,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 2A',cells:'13S',zulassung:'—',maxLoad:120,tirePressure:'2.5–3.0',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'6–8'},
+  lr8: {name:'Joyor LR8',badge:'—',volt:48,watt:800,ah:18,vmax:30,range:'40–55',weight:28,tire:'10" Pneumatik',brakes:'Scheibenbremse v/h',ip:'IP54',charger:'54.6V 3A',cells:'13S',zulassung:'—',maxLoad:150,tirePressure:'2.5–3.5',poles:15,wheelInch:10,uvp:39.0,fullV:54.6,chargeTime:'5–7'},
+};
+
+let currentModel = 'auto';
+
+function getModel() { return MODELS[currentModel] || MODELS.s5; }
+
 /* ── Data ────────────────────────────────────── */
 
 const ERRORS = [
@@ -666,38 +705,42 @@ const MAINT = [
    note:'10-Zoll-Luftreifen. Schlauch beim Wechsel immer mit erneuern. Reifenheber verwenden.'},
 ];
 
-const PSETTINGS = [
-  {code:'P01',name:'Startmodus',val:'0 / 1',def:'1',abe:false,
-   desc:'0 = Nullstart (fährt aus dem Stand los), 1 = Kickstart (erst anschieben, dann Gas). Kickstart ist sicherer und schont den Motor.'},
-  {code:'P02',name:'Tempomat',val:'0 / 1',def:'0',abe:false,
-   desc:'0 = Aus, 1 = An. Hält die aktuelle Geschwindigkeit nach 5 Sek. konstantem Gas. Bremsen deaktiviert den Tempomat.'},
-  {code:'P03',name:'Geschwindigkeitslimit',val:'0–100%',def:'100',abe:true,
-   desc:'Maximale Geschwindigkeit in Prozent. ABE-Version ist auf 20 km/h limitiert. Änderung führt zum Erlöschen der ABE.'},
-  {code:'P04',name:'Nennspannung',val:'36 / 48 / 52 / 60',def:'48',abe:true,
-   desc:'Akkuspannung des Systems. Muss auf 48V stehen. Falsche Einstellung kann Controller oder Motor beschädigen.'},
-  {code:'P05',name:'Leistungsstufe',val:'1–5',def:'5',abe:true,
-   desc:'Maximale Motorleistung. ABE-Version ist auf die zugelassene Leistungsstufe begrenzt.'},
-  {code:'P06',name:'Raddurchmesser',val:'5–12 Zoll',def:'10',abe:false,
-   desc:'Für korrekte Geschwindigkeitsanzeige. Joyor S5 = 10 Zoll. Falsche Einstellung verfälscht Tacho und Kilometerstand.'},
-  {code:'P07',name:'Einheit',val:'0 / 1',def:'0',abe:false,
-   desc:'0 = km/h, 1 = mph. In Deutschland km/h verwenden.'},
-  {code:'P08',name:'Motorpole',val:'Polzahl',def:'15',abe:false,
-   desc:'Anzahl der Magnetpole im Motor. Joyor S5 = 15 Pole. Beeinflusst Tachogenauigkeit. Nur ändern wenn neuer Motor verbaut wird.'},
-  {code:'P09',name:'Rekuperation',val:'0–5',def:'2',abe:false,
-   desc:'Stärke der Energierückgewinnung beim Bremsen. 0 = Aus, 5 = Maximum. Höhere Werte = stärkere Motorbremse, mehr Reichweite, aber ruckartigeres Bremsen.'},
-  {code:'P10',name:'Display-Helligkeit',val:'1–3',def:'2',abe:false,
-   desc:'1 = Dunkel, 2 = Normal, 3 = Hell. Höhere Helligkeit bei Sonnenlicht, niedrigere spart minimal Strom.'},
-  {code:'P11',name:'E-Bremse',val:'0 / 1',def:'1',abe:false,
-   desc:'0 = Aus, 1 = An. Elektronische Bremse über den Motor. Ergänzt die mechanische Scheibenbremse.'},
-  {code:'P12',name:'ABS-Modus',val:'0 / 1',def:'0',abe:false,
-   desc:'0 = Aus, 1 = An. Anti-Blockier-System für die E-Bremse. Verhindert Blockieren des Hinterrads bei Nässe.'},
-  {code:'P13',name:'Fehler-Reset',val:'Aktion',def:'—',abe:false,
-   desc:'Löscht gespeicherte Fehlercodes. Nur nach Behebung der Ursache verwenden. Setzt den Fehlerspeicher zurück.'},
-  {code:'P14',name:'Unterspannungsschutz',val:'Volt',def:'39.0',abe:true,
-   desc:'Abschaltspannung zum Schutz des Akkus. Standard 39.0V (3.0V/Zelle). Tiefere Werte verkürzen die Akku-Lebensdauer erheblich.'},
-  {code:'P15',name:'Werksreset',val:'Aktion',def:'—',abe:false,
-   desc:'Setzt alle P-Parameter auf Werkseinstellungen zurück. ABE-Werte werden wiederhergestellt.'},
-];
+function getPSettings() {
+  const m = getModel();
+  const isAbe = m.badge === 'ABE';
+  return [
+    {code:'P01',name:'Startmodus',val:'0 / 1',def:'1',abe:false,
+     desc:'0 = Nullstart (fährt aus dem Stand los), 1 = Kickstart (erst anschieben, dann Gas). Kickstart ist sicherer und schont den Motor.'},
+    {code:'P02',name:'Tempomat',val:'0 / 1',def:'0',abe:false,
+     desc:'0 = Aus, 1 = An. Hält die aktuelle Geschwindigkeit nach 5 Sek. konstantem Gas. Bremsen deaktiviert den Tempomat.'},
+    {code:'P03',name:'Geschwindigkeitslimit',val:'0–100%',def:'100',abe:isAbe,
+     desc:'Maximale Geschwindigkeit in Prozent.' + (isAbe ? ' ABE-Version ist auf ' + m.vmax + ' km/h limitiert. Änderung führt zum Erlöschen der ABE.' : ' V-Max: ' + m.vmax + ' km/h.')},
+    {code:'P04',name:'Nennspannung',val:'36 / 48 / 52 / 60',def:String(m.volt),abe:true,
+     desc:'Akkuspannung des Systems. Muss auf ' + m.volt + 'V stehen. Falsche Einstellung kann Controller oder Motor beschädigen.'},
+    {code:'P05',name:'Leistungsstufe',val:'1–5',def:'5',abe:isAbe,
+     desc:'Maximale Motorleistung.' + (isAbe ? ' ABE-Version ist auf die zugelassene Leistungsstufe begrenzt.' : '')},
+    {code:'P06',name:'Raddurchmesser',val:'5–12 Zoll',def:String(m.wheelInch),abe:false,
+     desc:'Für korrekte Geschwindigkeitsanzeige. ' + m.name + ' = ' + m.wheelInch + ' Zoll. Falsche Einstellung verfälscht Tacho und Kilometerstand.'},
+    {code:'P07',name:'Einheit',val:'0 / 1',def:'0',abe:false,
+     desc:'0 = km/h, 1 = mph. In Deutschland km/h verwenden.'},
+    {code:'P08',name:'Motorpole',val:'Polzahl',def:String(m.poles),abe:false,
+     desc:'Anzahl der Magnetpole im Motor. ' + m.name + ' = ' + m.poles + ' Pole. Beeinflusst Tachogenauigkeit. Nur ändern wenn neuer Motor verbaut wird.'},
+    {code:'P09',name:'Rekuperation',val:'0–5',def:'2',abe:false,
+     desc:'Stärke der Energierückgewinnung beim Bremsen. 0 = Aus, 5 = Maximum. Höhere Werte = stärkere Motorbremse, mehr Reichweite, aber ruckartigeres Bremsen.'},
+    {code:'P10',name:'Display-Helligkeit',val:'1–3',def:'2',abe:false,
+     desc:'1 = Dunkel, 2 = Normal, 3 = Hell. Höhere Helligkeit bei Sonnenlicht, niedrigere spart minimal Strom.'},
+    {code:'P11',name:'E-Bremse',val:'0 / 1',def:'1',abe:false,
+     desc:'0 = Aus, 1 = An. Elektronische Bremse über den Motor. Ergänzt die mechanische Scheibenbremse.'},
+    {code:'P12',name:'ABS-Modus',val:'0 / 1',def:'0',abe:false,
+     desc:'0 = Aus, 1 = An. Anti-Blockier-System für die E-Bremse. Verhindert Blockieren des Hinterrads bei Nässe.'},
+    {code:'P13',name:'Fehler-Reset',val:'Aktion',def:'—',abe:false,
+     desc:'Löscht gespeicherte Fehlercodes. Nur nach Behebung der Ursache verwenden. Setzt den Fehlerspeicher zurück.'},
+    {code:'P14',name:'Unterspannungsschutz',val:'Volt',def:m.uvp.toFixed(1),abe:true,
+     desc:'Abschaltspannung zum Schutz des Akkus. Standard ' + m.uvp.toFixed(1) + 'V (' + (m.uvp / parseInt(m.cells)).toFixed(1) + 'V/Zelle). Tiefere Werte verkürzen die Akku-Lebensdauer erheblich.'},
+    {code:'P15',name:'Werksreset',val:'Aktion',def:'—',abe:false,
+     desc:'Setzt alle P-Parameter auf Werkseinstellungen zurück.' + (isAbe ? ' ABE-Werte werden wiederhergestellt.' : '')},
+  ];
+}
 
 const TROUBLES = [
   {q:'Scooter startet nicht',steps:[
@@ -773,11 +816,13 @@ const TROUBLES = [
 
 /* ── Helpers ─────────────────────────────────── */
 function store(key, val) {
-  try { localStorage.setItem('joyor_s5_' + key, JSON.stringify(val)); } catch(e) {}
+  try { localStorage.setItem('joyor_' + key, JSON.stringify(val)); } catch(e) {}
 }
 function load(key, fallback) {
-  try { const v = localStorage.getItem('joyor_s5_' + key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
+  try { const v = localStorage.getItem('joyor_' + key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
 }
+// migrate old keys
+try { for (const k of Object.keys(localStorage)) { if (k.startsWith('joyor_s5_')) { const nk = k.replace('joyor_s5_', 'joyor_'); if (!localStorage.getItem(nk)) localStorage.setItem(nk, localStorage.getItem(k)); } } } catch(e) {}
 
 /* ── Tabs ────────────────────────────────────── */
 const tabs = document.querySelectorAll('.tab-btn');
@@ -904,24 +949,78 @@ document.getElementById('kmSave').addEventListener('click', () => {
 renderMaint();
 
 /* ── P-Settings ──────────────────────────────── */
-(function() {
+function renderPSettings() {
   const list = document.getElementById('psetList');
-  list.innerHTML = PSETTINGS.map(p => `
-    <div class="card has-stripe pset-card" onclick="this.classList.toggle('open')">
-      <div class="card-stripe ${p.abe ? 'crit' : 'info'}"></div>
-      <div class="pset-header">
-        <span class="pset-code">${p.code}</span>
-        <span class="pset-name">${p.name}</span>
-        ${p.abe ? '<span class="pset-abe">ABE</span>' : ''}
-        <span class="pset-val">Wert: ${p.val}</span>
-        <span class="pset-arrow">&#9654;</span>
-      </div>
-      <div class="pset-detail">
-        <div><strong>Standard:</strong> ${p.def}</div>
-        <div style="margin-top:4px">${p.desc}</div>
-      </div>
-    </div>
-  `).join('');
+  const ps = getPSettings();
+  list.innerHTML = ps.map(p => '<div class="card has-stripe pset-card" onclick="this.classList.toggle(\'open\')"><div class="card-stripe ' + (p.abe ? 'crit' : 'info') + '"></div><div class="pset-header"><span class="pset-code">' + p.code + '</span><span class="pset-name">' + p.name + '</span>' + (p.abe ? '<span class="pset-abe">ABE</span>' : '') + '<span class="pset-val">Wert: ' + p.val + '</span><span class="pset-arrow">&#9654;</span></div><div class="pset-detail"><div><strong>Standard:</strong> ' + p.def + '</div><div style="margin-top:4px">' + p.desc + '</div></div></div>').join('');
+}
+renderPSettings();
+
+/* ── Specs / Daten ──────────────────────────── */
+function renderSpecs() {
+  const m = getModel();
+  document.getElementById('quickRef').innerHTML = [
+    ['Reifendruck', m.tirePressure !== '—' ? m.tirePressure + ' bar' : 'Vollgummi'],
+    ['Akku voll', m.fullV + ' V'],
+    ['Akku leer', m.uvp.toFixed(1) + ' V'],
+    ['Bremsbelag min.', '1.5 mm'],
+    ['Ladezeit', m.chargeTime + ' h'],
+    ['Max. Zuladung', m.maxLoad + ' kg'],
+  ].map(function(r) { return '<div class="qr-item"><div class="qr-label">' + r[0] + '</div><div class="qr-value">' + r[1] + '</div></div>'; }).join('');
+
+  document.getElementById('specGrid').innerHTML = [
+    ['Motor', m.watt + ' W BLDC'],
+    ['Nennspannung', m.volt + ' V'],
+    ['Akku', m.volt + 'V ' + m.ah + 'Ah Li-Ion'],
+    ['Reichweite', m.range + ' km'],
+    ['V-Max', m.vmax + ' km/h'],
+    ['Gewicht', '~' + m.weight + ' kg'],
+    ['Reifen', m.tire],
+    ['Bremsen', m.brakes],
+    ['Schutzklasse', m.ip],
+    ['Ladegerät', m.charger],
+    ['Zellen', m.cells + ' / ' + m.volt + 'V'],
+    ['Zulassung', m.zulassung],
+  ].map(function(r) { return '<div class="spec-item"><div class="spec-label">' + r[0] + '</div><div class="spec-value">' + r[1] + '</div></div>'; }).join('');
+
+  document.getElementById('torqueGrid').innerHTML = [
+    ['Lenkerklemme', '18–20 Nm'],
+    ['Achsmuttern', '25–30 Nm'],
+    ['Bremsscheibe', '5–6 Nm'],
+    ['Bremssattel', '8–10 Nm'],
+    ['Klappgelenk', '12–15 Nm'],
+    ['Trittbrett-Schrauben', '8–10 Nm'],
+  ].map(function(r) { return '<div class="spec-item"><div class="spec-label">' + r[0] + '</div><div class="spec-value">' + r[1] + '</div></div>'; }).join('');
+}
+renderSpecs();
+
+/* ── ABE Hinweis Toggle ─────────────────────── */
+function renderAbeHint() {
+  const el = document.getElementById('abeHint');
+  if (el) el.style.display = getModel().badge === 'ABE' ? '' : 'none';
+}
+
+/* ── Model Switching ────────────────────────── */
+function setModel(id) {
+  currentModel = id;
+  store('model', id);
+  const m = getModel();
+  document.getElementById('hdrBadge').textContent = m.badge;
+  document.getElementById('hdrTitle').textContent = m.name + ' Service-Tool';
+  document.getElementById('modelBadge').textContent = m.volt + 'V · ' + m.watt + 'W';
+  document.getElementById('footModel').textContent = m.name + ' Service-Tool';
+  document.title = m.name + ' Service-Tool';
+  renderSpecs();
+  renderPSettings();
+  renderAbeHint();
+}
+
+(function() {
+  const sel = document.getElementById('modelSelect');
+  const saved = load('model', 's5');
+  if (MODELS[saved]) { currentModel = saved; sel.value = saved; }
+  sel.addEventListener('change', function() { setModel(this.value); });
+  setModel(currentModel);
 })();
 
 /* ── Troubleshooting ─────────────────────────── */
@@ -940,7 +1039,7 @@ renderMaint();
   `).join('');
 })();
 
-/* ── USB Serial / Verbinden ─────────────────── */
+/* ── Dual USB Serial + Bluetooth BLE / Verbinden ── */
 (function() {
   const dot = document.getElementById('bleDot');
   const label = document.getElementById('bleLabel');
@@ -949,28 +1048,76 @@ renderMaint();
   const svcEl = document.getElementById('bleServices');
   const scanBtn = document.getElementById('bleScan');
   const discBtn = document.getElementById('bleDisconnect');
-  const noSupport = document.getElementById('bleNoSupport');
-  const bleContent = document.getElementById('bleContent');
+  const noSupport = document.getElementById('connNoSupport');
+  const noSupportTitle = document.getElementById('noSupportTitle');
+  const noSupportText = document.getElementById('noSupportText');
+  const content = document.getElementById('bleContent');
   const baudSelect = document.getElementById('baudSelect');
+  const modeUsbBtn = document.getElementById('modeUsb');
+  const modeBleBtn = document.getElementById('modeBle');
 
-  let port = null;
-  let reader = null;
-  let writer = null;
-  let readLoop = null;
-  let pollTimer = null;
-  let rxBuf = [];
+  let mode = 'usb';
+  const hasSerial = 'serial' in navigator;
+  const hasBle = 'bluetooth' in navigator;
 
-  if (!('serial' in navigator)) {
+  // USB state
+  let port = null, usbReader = null, usbWriter = null;
+  // BLE state
+  let bleDevice = null, bleServer = null, bleTxChar = null, bleRxChar = null;
+  // Shared
+  let pollTimer = null, rxBuf = [];
+
+  const BLE_UUIDS = [
+    { svc: '0000ffe0-0000-1000-8000-00805f9b34fb', rx: '0000ffe1-0000-1000-8000-00805f9b34fb', tx: '0000ffe1-0000-1000-8000-00805f9b34fb', name: 'FFE0' },
+    { svc: '6e400001-b5a3-f393-e0a9-e50e24dcca9e', rx: '6e400003-b5a3-f393-e0a9-e50e24dcca9e', tx: '6e400002-b5a3-f393-e0a9-e50e24dcca9e', name: 'Nordic NUS' },
+    { svc: '0000fff0-0000-1000-8000-00805f9b34fb', rx: '0000fff1-0000-1000-8000-00805f9b34fb', tx: '0000fff2-0000-1000-8000-00805f9b34fb', name: 'FFF0' }
+  ];
+
+  function updateModeUI() {
+    const isUsb = mode === 'usb';
+    modeUsbBtn.classList.toggle('active', isUsb);
+    modeBleBtn.classList.toggle('active', !isUsb);
+    baudSelect.style.display = isUsb ? '' : 'none';
+    scanBtn.textContent = isUsb ? 'USB verbinden' : 'Scooter suchen';
+
+    const supported = isUsb ? hasSerial : hasBle;
+    if (!supported) {
+      noSupport.style.display = '';
+      content.querySelector('.ble-actions').style.display = 'none';
+      content.querySelector('.ble-status').style.display = 'none';
+      if (isUsb) {
+        noSupportTitle.textContent = 'Web Serial nicht verfügbar';
+        noSupportText.textContent = 'Verwende Chrome/Edge (Desktop) für USB-Verbindung.';
+      } else {
+        noSupportTitle.textContent = 'Web Bluetooth nicht verfügbar';
+        noSupportText.textContent = 'Verwende Chrome (Android/Desktop) für Bluetooth-Verbindung.';
+      }
+    } else {
+      noSupport.style.display = 'none';
+      content.querySelector('.ble-actions').style.display = '';
+      content.querySelector('.ble-status').style.display = '';
+    }
+  }
+
+  modeUsbBtn.addEventListener('click', () => { if (mode !== 'usb') { disconnectAll(); mode = 'usb'; updateModeUI(); log('Modus: USB Serial', 'log-info'); }});
+  modeBleBtn.addEventListener('click', () => { if (mode !== 'ble') { disconnectAll(); mode = 'ble'; updateModeUI(); log('Modus: Bluetooth BLE', 'log-info'); }});
+
+  if (!hasSerial && !hasBle) {
     noSupport.style.display = '';
-    bleContent.style.display = 'none';
+    noSupportTitle.textContent = 'Nicht verfügbar';
+    noSupportText.textContent = 'Weder Web Serial noch Web Bluetooth wird unterstützt. Verwende Chrome.';
+    content.querySelector('.ble-actions').style.display = 'none';
+    content.querySelector('.ble-status').style.display = 'none';
     return;
   }
+
+  updateModeUI();
 
   function log(msg, cls) {
     const ts = new Date().toLocaleTimeString('de-DE');
     const span = document.createElement('span');
     if (cls) span.className = cls;
-    span.textContent = `[${ts}] ${msg}\n`;
+    span.textContent = '[' + ts + '] ' + msg + '\n';
     logEl.appendChild(span);
     logEl.scrollTop = logEl.scrollHeight;
   }
@@ -993,9 +1140,10 @@ renderMaint();
   }
 
   function voltToPercent(v) {
-    if (v >= 54.6) return 100;
-    if (v <= 39.0) return 0;
-    return Math.round((v - 39.0) / (54.6 - 39.0) * 100);
+    const m = getModel();
+    if (v >= m.fullV) return 100;
+    if (v <= m.uvp) return 0;
+    return Math.round((v - m.uvp) / (m.fullV - m.uvp) * 100);
   }
 
   function batClass(pct) {
@@ -1006,29 +1154,17 @@ renderMaint();
 
   function processRxBuf() {
     while (rxBuf.length >= 4) {
-      // Protocol A: [5A A5] [len] [cmd] [data...] [checksum]
       if (rxBuf[0] === 0x5A && rxBuf[1] === 0xA5) {
-        const len = rxBuf[2];
-        const frameLen = len + 4;
+        const len = rxBuf[2]; const frameLen = len + 4;
         if (rxBuf.length < frameLen) break;
-        const frame = rxBuf.splice(0, frameLen);
-        parseFrame(frame);
-        continue;
+        parseFrame(rxBuf.splice(0, frameLen)); continue;
       }
-      // Protocol B: [AA] ... [55]
       if (rxBuf[0] === 0xAA) {
         const endIdx = rxBuf.indexOf(0x55, 3);
         if (endIdx === -1) { if (rxBuf.length > 64) rxBuf.splice(0, 1); break; }
-        const frame = rxBuf.splice(0, endIdx + 1);
-        parseFrame(frame);
-        continue;
+        parseFrame(rxBuf.splice(0, endIdx + 1)); continue;
       }
-      // Protocol C: continuous stream — try 10-byte chunks
-      if (rxBuf.length >= 10) {
-        const frame = rxBuf.splice(0, 10);
-        parseFrame(frame);
-        continue;
-      }
+      if (rxBuf.length >= 10) { parseFrame(rxBuf.splice(0, 10)); continue; }
       break;
     }
     if (rxBuf.length > 256) rxBuf.splice(0, rxBuf.length - 64);
@@ -1037,121 +1173,77 @@ renderMaint();
   function parseFrame(bytes) {
     if (bytes.length < 4) return;
     log('RX: ' + bytesToHex(bytes), 'log-data');
-
-    // Protocol A: [5A A5] [len] [cmd] [data...] [checksum]
     if (bytes[0] === 0x5A && bytes[1] === 0xA5 && bytes.length >= 6) {
       const cmd = bytes[3];
-      if (cmd === 0x40 || cmd === 0x31) {
-        const volt = ((bytes[4] << 8) | bytes[5]) / 100;
-        const pct = voltToPercent(volt);
-        setLive('liveVolt', volt.toFixed(1), 'V');
-        setLive('liveBat', pct, '%', batClass(pct));
-        log('Spannung: ' + volt.toFixed(1) + 'V (' + pct + '%)', 'log-ok');
-      }
-      if (cmd === 0x41 || cmd === 0x32) {
-        const speed = ((bytes[4] << 8) | bytes[5]) / 10;
-        setLive('liveSpeed', speed.toFixed(1), 'km/h');
-      }
-      if (cmd === 0x42 || cmd === 0x33) {
-        const odo = ((bytes[4] << 16) | (bytes[5] << 8) | bytes[6]) / 10;
-        setLive('liveOdo', odo.toFixed(0), 'km');
-      }
-      if (cmd === 0x43 || cmd === 0x34) {
-        const temp = bytes[4] - 20;
-        setLive('liveTemp', temp, '°C', temp > 60 ? 'crit' : (temp > 45 ? 'warn' : ''));
-      }
-      if (cmd === 0x44 || cmd === 0x35) {
-        const errCode = bytes[4];
-        if (errCode === 0) {
-          setLive('liveErr', 'Keiner', '', 'ok');
-        } else {
-          setLive('liveErr', 'E' + errCode.toString().padStart(2,'0'), '', 'crit');
-          log('Fehlercode: E' + errCode.toString().padStart(2,'0'), 'log-err');
-        }
-      }
+      if (cmd === 0x40 || cmd === 0x31) { const v = ((bytes[4] << 8) | bytes[5]) / 100; const p = voltToPercent(v); setLive('liveVolt', v.toFixed(1), 'V'); setLive('liveBat', p, '%', batClass(p)); log('Spannung: ' + v.toFixed(1) + 'V (' + p + '%)', 'log-ok'); }
+      if (cmd === 0x41 || cmd === 0x32) { setLive('liveSpeed', (((bytes[4] << 8) | bytes[5]) / 10).toFixed(1), 'km/h'); }
+      if (cmd === 0x42 || cmd === 0x33) { setLive('liveOdo', (((bytes[4] << 16) | (bytes[5] << 8) | bytes[6]) / 10).toFixed(0), 'km'); }
+      if (cmd === 0x43 || cmd === 0x34) { const t = bytes[4] - 20; setLive('liveTemp', t, '°C', t > 60 ? 'crit' : (t > 45 ? 'warn' : '')); }
+      if (cmd === 0x44 || cmd === 0x35) { const e = bytes[4]; if (e === 0) { setLive('liveErr', 'Keiner', '', 'ok'); } else { setLive('liveErr', 'E' + e.toString().padStart(2,'0'), '', 'crit'); log('Fehlercode: E' + e.toString().padStart(2,'0'), 'log-err'); } }
       return;
     }
-
-    // Protocol B: [AA] [len] [src] [cmd] [data...] [checksum] [55]
     if (bytes[0] === 0xAA && bytes[bytes.length - 1] === 0x55 && bytes.length >= 7) {
       const cmd = bytes[3];
-      if (cmd === 0x16 || cmd === 0x25) {
-        const volt = ((bytes[4] << 8) | bytes[5]) / 100;
-        const pct = voltToPercent(volt);
-        setLive('liveVolt', volt.toFixed(1), 'V');
-        setLive('liveBat', pct, '%', batClass(pct));
-      }
-      if (cmd === 0x26) {
-        const speed = ((bytes[4] << 8) | bytes[5]) / 10;
-        setLive('liveSpeed', speed.toFixed(1), 'km/h');
-      }
-      if (cmd === 0x17) {
-        const current = ((bytes[4] << 8) | bytes[5]) / 100;
-        setLive('liveCurrent', current.toFixed(1), 'A');
-      }
-      if (cmd === 0x1A) {
-        setLive('liveMode', bytes[4], '');
-      }
+      if (cmd === 0x16 || cmd === 0x25) { const v = ((bytes[4] << 8) | bytes[5]) / 100; const p = voltToPercent(v); setLive('liveVolt', v.toFixed(1), 'V'); setLive('liveBat', p, '%', batClass(p)); }
+      if (cmd === 0x26) { setLive('liveSpeed', (((bytes[4] << 8) | bytes[5]) / 10).toFixed(1), 'km/h'); }
+      if (cmd === 0x17) { setLive('liveCurrent', (((bytes[4] << 8) | bytes[5]) / 100).toFixed(1), 'A'); }
+      if (cmd === 0x1A) { setLive('liveMode', bytes[4], ''); }
       return;
     }
-
-    // Protocol C: continuous stream
     if (bytes.length >= 10) {
-      const volt = ((bytes[2] << 8) | bytes[3]) / 100;
-      if (volt > 30 && volt < 70) {
-        const pct = voltToPercent(volt);
-        setLive('liveVolt', volt.toFixed(1), 'V');
-        setLive('liveBat', pct, '%', batClass(pct));
-        const speed = ((bytes[4] << 8) | bytes[5]) / 10;
-        if (speed >= 0 && speed < 100) setLive('liveSpeed', speed.toFixed(1), 'km/h');
-      }
+      const v = ((bytes[2] << 8) | bytes[3]) / 100;
+      if (v > 30 && v < 70) { const p = voltToPercent(v); setLive('liveVolt', v.toFixed(1), 'V'); setLive('liveBat', p, '%', batClass(p)); const s = ((bytes[4] << 8) | bytes[5]) / 10; if (s >= 0 && s < 100) setLive('liveSpeed', s.toFixed(1), 'km/h'); }
     }
   }
 
-  function renderPortInfo(info) {
-    const usbVendor = info.usbVendorId ? '0x' + info.usbVendorId.toString(16).padStart(4,'0') : '—';
-    const usbProduct = info.usbProductId ? '0x' + info.usbProductId.toString(16).padStart(4,'0') : '—';
-    svcEl.innerHTML = `
-      <div class="ble-svc">
-        <div class="ble-svc-name">USB Serial Port</div>
-        <div class="ble-char">Vendor ID: <span class="ble-char-props">${usbVendor}</span></div>
-        <div class="ble-char">Product ID: <span class="ble-char-props">${usbProduct}</span></div>
-        <div class="ble-char">Baudrate: <span class="ble-char-props">${baudSelect.value}</span></div>
-      </div>`;
-  }
-
+  /* ── Send command (works for both modes) ── */
   async function sendCommand(bytes) {
-    if (!writer) return;
+    const data = new Uint8Array(bytes);
     try {
-      const data = new Uint8Array(bytes);
-      await writer.write(data);
-      log('TX: ' + bytesToHex(data), 'log-data');
-    } catch(e) {
-      log('Senden fehlgeschlagen: ' + e.message, 'log-err');
-    }
+      if (mode === 'usb' && usbWriter) {
+        await usbWriter.write(data);
+        log('TX: ' + bytesToHex(data), 'log-data');
+      } else if (mode === 'ble' && bleTxChar) {
+        await bleTxChar.writeValueWithoutResponse(data);
+        log('TX: ' + bytesToHex(data), 'log-data');
+      }
+    } catch(e) { log('Senden fehlgeschlagen: ' + e.message, 'log-err'); }
   }
 
   function startPolling() {
     stopPolling();
     pollTimer = setInterval(() => {
-      if (!writer) return;
       sendCommand([0x5A, 0xA5, 0x02, 0x40, 0x00, 0xE1]);
       setTimeout(() => sendCommand([0x5A, 0xA5, 0x02, 0x41, 0x00, 0xE2]), 200);
       setTimeout(() => sendCommand([0x5A, 0xA5, 0x02, 0x43, 0x00, 0xE4]), 400);
       setTimeout(() => sendCommand([0x5A, 0xA5, 0x02, 0x44, 0x00, 0xE5]), 600);
     }, 2000);
   }
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
-  function stopPolling() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  }
-
-  async function disconnect() {
+  /* ── USB disconnect ── */
+  async function disconnectUsb() {
     stopPolling();
-    if (reader) { try { await reader.cancel(); } catch(e) {} reader = null; }
-    if (writer) { try { writer.releaseLock(); } catch(e) {} writer = null; }
+    if (usbReader) { try { await usbReader.cancel(); } catch(e) {} usbReader = null; }
+    if (usbWriter) { try { usbWriter.releaseLock(); } catch(e) {} usbWriter = null; }
     if (port) { try { await port.close(); } catch(e) {} port = null; }
     rxBuf = [];
+  }
+
+  /* ── BLE disconnect ── */
+  function disconnectBle() {
+    stopPolling();
+    if (bleRxChar) { try { bleRxChar.removeEventListener('characteristicvaluechanged', onBleData); } catch(e) {} bleRxChar = null; }
+    bleTxChar = null;
+    if (bleServer && bleServer.connected) { try { bleServer.disconnect(); } catch(e) {} }
+    bleServer = null; bleDevice = null;
+    rxBuf = [];
+  }
+
+  /* ── Disconnect current mode ── */
+  async function disconnectAll() {
+    if (mode === 'usb') await disconnectUsb();
+    else disconnectBle();
     setStatus('', 'Getrennt', '');
     discBtn.disabled = true;
     scanBtn.disabled = false;
@@ -1159,68 +1251,171 @@ renderMaint();
     log('Verbindung getrennt.', 'log-info');
   }
 
-  async function startReading() {
-    while (port && port.readable) {
-      reader = port.readable.getReader();
-      try {
-        while (true) {
-          const {value, done} = await reader.read();
-          if (done) break;
-          rxBuf.push(...value);
-          processRxBuf();
-        }
-      } catch(e) {
-        log('Lese-Fehler: ' + e.message, 'log-err');
-      } finally {
-        try { reader.releaseLock(); } catch(e) {}
-      }
-    }
-  }
-
-  scanBtn.addEventListener('click', async () => {
+  /* ── USB connect ── */
+  async function connectUsb() {
     scanBtn.disabled = true;
     setStatus('scanning', 'Verbinde...', '');
     logEl.innerHTML = '';
     log('USB-Port auswählen...', 'log-info');
     log('Tipp: Scooter einschalten und USB-Kabel anschließen.', 'log-info');
-
     try {
       port = await navigator.serial.requestPort();
       const info = port.getInfo();
       const baud = parseInt(baudSelect.value);
-
       log('Port ausgewählt (Vendor: 0x' + (info.usbVendorId || 0).toString(16) + ')', 'log-ok');
       setStatus('scanning', 'Öffne Port...', '');
-
       await port.open({ baudRate: baud, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' });
-
       log('USB Serial verbunden (' + baud + ' Baud)', 'log-ok');
       setStatus('connected', 'Verbunden', 'USB @ ' + baud + ' Bd');
-      discBtn.disabled = false;
-      scanBtn.disabled = false;
+      discBtn.disabled = false; scanBtn.disabled = false;
+      const usbVendor = info.usbVendorId ? '0x' + info.usbVendorId.toString(16).padStart(4,'0') : '—';
+      const usbProduct = info.usbProductId ? '0x' + info.usbProductId.toString(16).padStart(4,'0') : '—';
+      svcEl.innerHTML = '<div class="ble-svc"><div class="ble-svc-name">USB Serial Port</div><div class="ble-char">Vendor ID: <span class="ble-char-props">' + usbVendor + '</span></div><div class="ble-char">Product ID: <span class="ble-char-props">' + usbProduct + '</span></div><div class="ble-char">Baudrate: <span class="ble-char-props">' + baud + '</span></div></div>';
+      usbWriter = port.writable.getWriter();
+      (async function readLoop() {
+        while (port && port.readable) {
+          usbReader = port.readable.getReader();
+          try { while (true) { const {value, done} = await usbReader.read(); if (done) break; rxBuf.push(...value); processRxBuf(); } }
+          catch(e) { log('Lese-Fehler: ' + e.message, 'log-err'); }
+          finally { try { usbReader.releaseLock(); } catch(e) {} }
+        }
+      })();
+      log('Starte Polling für Live-Daten...', 'log-info');
+      startPolling();
+    } catch(e) {
+      if (e.name === 'NotFoundError') { log('Kein Port ausgewählt.', 'log-info'); setStatus('', 'Getrennt', ''); }
+      else { log('Fehler: ' + e.message, 'log-err'); setStatus('error', 'Fehler', ''); }
+      scanBtn.disabled = false; port = null;
+    }
+  }
 
-      renderPortInfo(info);
+  /* ── BLE data handler ── */
+  function onBleData(event) {
+    const val = event.target.value;
+    for (let i = 0; i < val.byteLength; i++) rxBuf.push(val.getUint8(i));
+    processRxBuf();
+  }
 
-      writer = port.writable.getWriter();
-      startReading();
+  /* ── BLE connect ── */
+  async function connectBle() {
+    scanBtn.disabled = true;
+    setStatus('scanning', 'Suche Scooter...', '');
+    logEl.innerHTML = '';
+    log('Suche Bluetooth-Geräte...', 'log-info');
+    log('Tipp: Scooter einschalten. Gerätename meist "scooter".', 'log-info');
+    try {
+      const allSvcUuids = BLE_UUIDS.map(u => u.svc);
+      bleDevice = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'scooter' }, { namePrefix: 'Scooter' }, { namePrefix: 'SCOOTER' }, { namePrefix: 'Joyor' }],
+        optionalServices: allSvcUuids,
+        acceptAllDevices: false
+      }).catch(() => navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: allSvcUuids }));
+
+      if (!bleDevice) { log('Kein Gerät ausgewählt.', 'log-info'); setStatus('', 'Getrennt', ''); scanBtn.disabled = false; return; }
+
+      log('Gerät: ' + (bleDevice.name || 'Unbekannt'), 'log-ok');
+      setStatus('scanning', 'Verbinde...', bleDevice.name || '');
+
+      bleDevice.addEventListener('gattserverdisconnected', () => {
+        log('Bluetooth-Verbindung verloren.', 'log-err');
+        disconnectBle();
+        setStatus('', 'Getrennt', '');
+        discBtn.disabled = true; scanBtn.disabled = false;
+        svcEl.innerHTML = '<div class="no-results">Nicht verbunden.</div>';
+      });
+
+      bleServer = await bleDevice.gatt.connect();
+      log('GATT verbunden.', 'log-ok');
+
+      let matched = null;
+      for (const u of BLE_UUIDS) {
+        try {
+          const svc = await bleServer.getPrimaryService(u.svc);
+          const rx = await svc.getCharacteristic(u.rx);
+          const tx = (u.tx === u.rx) ? rx : await svc.getCharacteristic(u.tx);
+          matched = { svc, rx, tx, name: u.name };
+          break;
+        } catch(e) { /* try next */ }
+      }
+
+      if (!matched) {
+        log('Kein bekanntes UART-Profil gefunden. Suche alle Services...', 'log-info');
+        const svcs = await bleServer.getPrimaryServices();
+        let html = '';
+        for (const svc of svcs) {
+          html += '<div class="ble-svc"><div class="ble-svc-name">' + svc.uuid + '</div>';
+          try {
+            const chars = await svc.getCharacteristics();
+            for (const c of chars) {
+              const props = [];
+              if (c.properties.read) props.push('R');
+              if (c.properties.write) props.push('W');
+              if (c.properties.writeWithoutResponse) props.push('Wn');
+              if (c.properties.notify) props.push('N');
+              html += '<div class="ble-char">' + c.uuid + ' <span class="ble-char-props">[' + props.join(',') + ']</span></div>';
+            }
+          } catch(e) {}
+          html += '</div>';
+        }
+        svcEl.innerHTML = html || '<div class="no-results">Keine Services gefunden.</div>';
+        setStatus('connected', 'Verbunden (kein UART)', bleDevice.name || '');
+        discBtn.disabled = false; scanBtn.disabled = false;
+        return;
+      }
+
+      log('UART-Profil: ' + matched.name, 'log-ok');
+      bleRxChar = matched.rx;
+      bleTxChar = matched.tx;
+
+      await bleRxChar.startNotifications();
+      bleRxChar.addEventListener('characteristicvaluechanged', onBleData);
+
+      setStatus('connected', 'Verbunden', bleDevice.name || 'BLE');
+      discBtn.disabled = false; scanBtn.disabled = false;
+
+      svcEl.innerHTML = '<div class="ble-svc"><div class="ble-svc-name">Bluetooth ' + matched.name + '</div><div class="ble-char">Gerät: <span class="ble-char-props">' + (bleDevice.name || '—') + '</span></div><div class="ble-char">Service: <span class="ble-char-props">' + matched.name + '</span></div><div class="ble-char">TX/RX: <span class="ble-char-props">Aktiv</span></div></div>';
 
       log('Starte Polling für Live-Daten...', 'log-info');
       startPolling();
 
     } catch(e) {
-      if (e.name === 'NotFoundError') {
-        log('Kein Port ausgewählt.', 'log-info');
-        setStatus('', 'Getrennt', '');
-      } else {
-        log('Fehler: ' + e.message, 'log-err');
-        setStatus('error', 'Fehler', '');
-      }
-      scanBtn.disabled = false;
-      port = null;
+      if (e.name === 'NotFoundError') { log('Kein Gerät ausgewählt.', 'log-info'); setStatus('', 'Getrennt', ''); }
+      else { log('Fehler: ' + e.message, 'log-err'); setStatus('error', 'Fehler', ''); }
+      scanBtn.disabled = false; bleDevice = null;
+    }
+  }
+
+  /* ── Android native bridge support ── */
+  if (window.AndroidUsb) {
+    window.onUsbConnected = function(name) { setStatus('connected', 'Verbunden', 'USB: ' + name); discBtn.disabled = false; log('USB verbunden: ' + name, 'log-ok'); startPolling(); };
+    window.onUsbDisconnected = function() { setStatus('', 'Getrennt', ''); discBtn.disabled = true; scanBtn.disabled = false; stopPolling(); log('USB getrennt.', 'log-info'); };
+    window.onUsbData = function(hex) { const bytes = hex.split(' ').filter(Boolean).map(h => parseInt(h, 16)); rxBuf.push(...bytes); processRxBuf(); };
+    window.onUsbError = function(msg) { log('USB-Fehler: ' + msg, 'log-err'); setStatus('error', 'Fehler', ''); scanBtn.disabled = false; };
+    window.onUsbDeviceInfo = function(json) { try { const d = JSON.parse(json); svcEl.innerHTML = '<div class="ble-svc"><div class="ble-svc-name">USB (Android)</div><div class="ble-char">Gerät: <span class="ble-char-props">' + d.name + '</span></div><div class="ble-char">Vendor: <span class="ble-char-props">' + d.vendor + '</span></div></div>'; } catch(e) {} };
+  }
+  if (window.AndroidBle) {
+    window.onBleConnected = function(name) { setStatus('connected', 'Verbunden', 'BLE: ' + name); discBtn.disabled = false; log('BLE verbunden: ' + name, 'log-ok'); startPolling(); };
+    window.onBleDisconnected = function() { setStatus('', 'Getrennt', ''); discBtn.disabled = true; scanBtn.disabled = false; stopPolling(); log('BLE getrennt.', 'log-info'); };
+    window.onBleData = function(hex) { const bytes = hex.split(' ').filter(Boolean).map(h => parseInt(h, 16)); rxBuf.push(...bytes); processRxBuf(); };
+    window.onBleError = function(msg) { log('BLE-Fehler: ' + msg, 'log-err'); setStatus('error', 'Fehler', ''); scanBtn.disabled = false; };
+  }
+
+  /* ── Button handlers ── */
+  scanBtn.addEventListener('click', () => {
+    if (mode === 'usb') {
+      if (window.AndroidUsb) { window.AndroidUsb.connect(); return; }
+      connectUsb();
+    } else {
+      if (window.AndroidBle) { window.AndroidBle.connect(); return; }
+      connectBle();
     }
   });
 
-  discBtn.addEventListener('click', disconnect);
+  discBtn.addEventListener('click', () => {
+    if (mode === 'usb' && window.AndroidUsb) { window.AndroidUsb.disconnect(); return; }
+    if (mode === 'ble' && window.AndroidBle) { window.AndroidBle.disconnect(); return; }
+    disconnectAll();
+  });
 })();
 
 if ('serviceWorker' in navigator) {
